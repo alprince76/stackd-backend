@@ -1,0 +1,182 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  user
+  maker
+  admin
+}
+
+enum ProductStatus {
+  pending
+  scheduled
+  approved
+  rejected
+}
+
+enum NewsletterStatus {
+  draft
+  scheduled
+  published
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  username      String    @unique
+  name          String
+  avatarUrl     String?
+  bio           String    @default("")
+  twitter       String?
+  website       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts  Account[]
+  sessions  Session[]
+  roles     UserRole[]
+  products  Product[]  @relation("MakerProducts")
+  votes     Vote[]
+  comments  Comment[]
+  followers Follow[] @relation("Following")
+  following Follow[] @relation("Follower")
+}
+
+model UserRole {
+  userId String
+  role   Role
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Category {
+  slug     String    @id
+  name     String
+  emoji    String
+  products Product[]
+}
+
+model Product {
+  id              String        @id
+  slug            String        @unique
+  name            String
+  tagline         String
+  description     String        @db.Text
+  thumbnailUrl    String?
+  screenshotUrls  String[]
+  categoryId      String
+  category        Category      @relation(fields: [categoryId], references: [slug])
+  tags            String[]
+  launchDate      DateTime      @db.Date
+  website         String
+  makerId         String
+  maker           User          @relation("MakerProducts", fields: [makerId], references: [id])
+  status          ProductStatus @default(pending)
+  scheduledAt     DateTime?
+  publishedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  votes           Vote[]
+  comments        Comment[]
+
+  @@index([status, launchDate(sort: Desc)])
+}
+
+model Vote {
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([userId, productId])
+  @@index([productId])
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  productId String
+  authorId  String
+  text      String    @db.Text
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([productId, createdAt(sort: Desc)])
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+}
+
+model Newsletter {
+  id                 String           @id
+  slug               String           @unique
+  title              String
+  coverImageUrl      String?
+  shortDescription   String
+  content            String           @db.Text
+  featuredProductIds String[]
+  publishDate        DateTime         @db.Date
+  status             NewsletterStatus @default(draft)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+}
+
+model NewsletterSubscriber {
+  id               String    @id @default(cuid())
+  email            String    @unique
+  confirmedAt      DateTime?
+  unsubscribeToken String    @unique @default(cuid())
+  createdAt        DateTime  @default(now())
+}

@@ -1,5 +1,7 @@
 # Cursor Prompt — Stackd Backend
 
+> **Updated:** Repo ini sekarang **Next.js 15 fullstack** (bukan NestJS). Gunakan prompt di bawah untuk melanjutkan fitur, atau baca `README.md` untuk arsitektur saat ini.
+
 Salin isi di bawah ini ke Cursor Agent mode saat memulai implementasi di repo `stackd-backend`.
 
 ---

@@ -1,104 +1,74 @@
-# Stackd Backend
+# Stackd — Fullstack Next.js
 
-REST API for [Stackd](https://github.com/alprince76/stackd-backend) — product launch platform for Indonesia & SEA.
+Product launch platform for Indonesia & SEA. **Next.js 15** App Router + **Prisma** + **PostgreSQL** + **Auth.js**.
 
-**Frontend repo (separate):** `stack-id-product` — TanStack Start MVP, not modified in phase 1.
-
----
+Formerly planned as separate NestJS backend — now unified in this repo.
 
 ## Documentation
 
 | Document | Purpose |
 |----------|---------|
-| [PLAN.md](./PLAN.md) | Master blueprint — architecture, boundaries, state machines |
-| [PROMPT.md](./PROMPT.md) | Copy-paste prompt for Cursor Agent to implement |
-| [docs/FLOWS.md](./docs/FLOWS.md) | Frontend flow → backend endpoint mapping |
-| [docs/API-CONTRACT.md](./docs/API-CONTRACT.md) | Response shapes, error codes, JSON examples |
-| [docs/SEED.md](./docs/SEED.md) | Seed data spec (mirrors frontend mock-data.ts) |
+| [PLAN.md](./PLAN.md) | Original NestJS blueprint (schema/state machine still valid) |
+| [docs/FLOWS.md](./docs/FLOWS.md) | Feature flows — Server Actions + RSC |
+| [docs/API-CONTRACT.md](./docs/API-CONTRACT.md) | Response shapes (reference) |
+| [docs/SEED.md](./docs/SEED.md) | Seed data spec |
 
----
-
-## Phase 1 Boundary
-
-This repo is **backend-only** during phase 1:
-
-- Frontend continues using mock data (`mock-data.ts` + `app-store.tsx`)
-- No HTTP calls between repos yet
-- Admin auth is **dual**: frontend cookie (`stackd-admin`) vs backend JWT + RBAC — independent until integration
-
-See [PLAN.md §4 Boundary Matrix](./PLAN.md#4-boundary-matrix).
-
----
-
-## Quick Start (after NestJS scaffold)
+## Quick Start
 
 ```bash
-# Prerequisites: Node 20, Docker Desktop running
+# Prerequisites: Node 20+, Docker Desktop
 
 cp .env.example .env
+# Set AUTH_SECRET (openssl rand -base64 32)
+
 docker compose up -d
 npm install
 npx prisma migrate dev
-npx prisma db seed
-npm run start:dev
+npm run db:seed
+npm run dev
 ```
 
-| Service | URL |
-|---------|-----|
-| API | http://localhost:3001/api/v1 |
-| Swagger | http://localhost:3001/api/docs |
-| MinIO console | http://localhost:9001 |
-| Mailhog | http://localhost:8025 |
+Open http://localhost:3000
 
----
-
-## Dev Seed Credentials
-
-After running seed (see [docs/SEED.md](./docs/SEED.md)):
+## Dev Login
 
 | User | Email | Password |
 |------|-------|----------|
-| Maker (e.g. rifqi) | rifqi@stackd.id | `DevPassword123!` |
-| Admin | admin@stackd.id | `DevPassword123!` |
+| Maker | rifqi@stackd.id | DevPassword123! |
+| Admin | admin@stackd.id | DevPassword123! |
 
----
+## Stack (MVP)
 
-## Implementation Order
+- Next.js 15 App Router, React 19, Tailwind CSS 4
+- Prisma + PostgreSQL
+- Auth.js (Credentials, JWT session)
+- Server Actions for mutations (vote, comment, submit, admin)
+- Deploy: Vercel + Neon (see `vercel.json`)
+
+## MVP Scope
+
+**Included:** leaderboard, product detail, auth, vote, comment, submit, admin queue, seed mirror mock-data
+
+**Deferred:** Redis, BullMQ, S3 uploads, email verify, OAuth, OpenAPI
+
+## Project Structure
 
 ```
-health → auth → users → uploads → products → votes → comments
-→ categories → search → newsletters → admin → jobs → CI
+src/app/           # App Router pages
+src/components/    # UI (ported from stack-id-product)
+src/lib/
+  actions/         # Server Actions
+  queries/         # Prisma read helpers
+  auth.ts          # Auth.js config
+prisma/            # schema + seed
 ```
 
-TDD required: e2e test first, then unit test, then implement.
+## Deploy (Vercel + Neon)
 
-Start implementation: open [PROMPT.md](./PROMPT.md) in Cursor Agent mode.
+1. Create Neon Postgres database
+2. Set env: `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL`
+3. Connect repo to Vercel — `vercel.json` runs migrations on build
 
----
+## Frontend Source
 
-## API Overview
-
-- Base path: `/api/v1`
-- Auth: JWT Bearer (15m) + refresh httpOnly cookie (7d)
-- Response: `{ data, meta? }` / error: `{ error: { code, message } }`
-
-Full contract: [docs/API-CONTRACT.md](./docs/API-CONTRACT.md)
-
----
-
-## Phase 2 — Frontend Integration (later)
-
-When backend e2e tests pass:
-
-1. Add `VITE_API_URL=http://localhost:3001/api/v1` to frontend
-2. Create `src/lib/api-client.ts` with field adapters
-3. Replace `app-store.tsx` mutations with React Query
-4. Migrate admin auth from cookie to JWT
-
-Order: [docs/FLOWS.md §13](./docs/FLOWS.md#13-integrasi--urutan-migrasi-frontend)
-
----
-
-## License
-
-Private — Stackd project.
+UI ported from `stack-id-product` (TanStack Start / Lovable). That repo is archived for this fullstack path.

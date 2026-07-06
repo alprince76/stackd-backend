@@ -1,11 +1,31 @@
-# Flow Mapping — Frontend vs Backend
+# Flow Mapping — Stackd Fullstack Next.js
 
-Dokumen ini memetakan setiap alur di frontend (`stack-id-product`) ke endpoint backend yang **menggantikannya** saat integrasi. Fase 1: keduanya berjalan **independen** — tidak ada HTTP call antar repo.
+> **Update (2026-07):** Repo ini sekarang **fullstack Next.js** — bukan NestJS terpisah. Mapping di bawah diadaptasi:
+>
+> | NestJS plan | Next.js implementation |
+> |-------------|------------------------|
+> | `POST /auth/login` | Auth.js Credentials + `/login` |
+> | `POST /products/:id/vote` | `toggleVote()` Server Action |
+> | `POST /products` submit | `submitProduct()` Server Action |
+> | `POST /admin/products/:id/approve` | `approveProduct()` Server Action |
+> | `GET /products` | RSC `getVisibleProducts()` di `app/page.tsx` |
+> | `app-store.tsx` state | Prisma DB + `router.refresh()` |
 
-**Referensi frontend:**
+---
+
+# Flow Mapping — Frontend vs Backend (original reference)
+
+Dokumen ini memetakan setiap alur di frontend (`stack-id-product`) ke backend yang menggantikannya. **Repo TanStack Start tidak lagi dipakai** — UI di-port ke Next.js di repo ini.
+
+**Referensi lama (TanStack Start):**
 - State: `src/lib/app-store.tsx`
 - Types/seed: `src/lib/mock-data.ts`
 - Admin auth: `src/lib/admin-auth.functions.ts`
+
+**Implementasi sekarang:**
+- Auth: `src/lib/auth.ts` + `src/lib/actions/app.ts`
+- Reads: `src/lib/queries/products.ts` (Server Components)
+- Writes: `src/lib/actions/app.ts` (Server Actions)
 
 ---
 
