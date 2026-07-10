@@ -88,12 +88,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!dbUser) {
           const username = await uniqueUsername(email);
+          const picture = (profile as { picture?: string } | undefined)?.picture ?? null;
+          const displayName = profile?.name ?? username;
           dbUser = await prisma.user.create({
             data: {
               email,
-              name: profile.name ?? username,
+              name: displayName,
               username,
-              avatarUrl: (profile as { picture?: string }).picture ?? null,
+              avatarUrl: picture,
               emailVerified: new Date(),
               passwordHash: null,
               roles: { create: [{ role: "user" as Role }] },
