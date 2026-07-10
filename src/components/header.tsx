@@ -21,7 +21,7 @@ export async function Header() {
         <HeaderClient nav={NAV} user={user ? {
           username: user.username,
           name: user.name,
-          avatarUrl: user.image,
+          avatarUrl: user.avatarUrl,
         } : null} />
         <Logo />
         <nav className="ml-6 hidden items-center gap-1 md:flex">
@@ -49,7 +49,7 @@ export async function Header() {
           {user ? (
             <Link href={`/u/${user.username}`}>
               <img
-                src={user.image ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`}
+                src={user.avatarUrl ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`}
                 alt={user.name}
                 className="h-9 w-9 rounded-full border border-border bg-light-gray"
               />

@@ -7,6 +7,7 @@ import type { Role } from "@prisma/client";
 declare module "next-auth" {
   interface User {
     username?: string;
+    avatarUrl?: string | null;
     roles?: Role[];
   }
   interface Session {
@@ -24,6 +25,7 @@ declare module "next-auth" {
 declare module "@auth/core/jwt" {
   interface JWT {
     username?: string;
+    avatarUrl?: string | null;
     roles?: Role[];
   }
 }
@@ -59,7 +61,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           name: user.name,
           username: user.username,
-          image: user.avatarUrl,
+          avatarUrl: user.avatarUrl,
           roles: user.roles.map(r => r.role),
         };
       },
@@ -70,6 +72,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.sub = user.id;
         token.username = user.username;
+        token.avatarUrl = user.avatarUrl ?? null;
         token.roles = user.roles ?? [];
       }
       return token;
@@ -78,6 +81,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user && token.sub) {
         session.user.id = token.sub;
         session.user.username = (token.username as string) ?? "";
+        session.user.avatarUrl = (token.avatarUrl as string | null) ?? null;
         session.user.roles = (token.roles as Role[]) ?? [];
       }
       return session;
