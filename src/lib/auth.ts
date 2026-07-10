@@ -1,7 +1,9 @@
 import NextAuth from "next-auth";
+import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { uniqueUsername } from "@/lib/oauth";
 import type { Role } from "@prisma/client";
 
 declare module "next-auth" {
@@ -37,6 +39,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     signIn: "/login",
   },
   providers: [
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
@@ -68,8 +74,80 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
+    async signIn({ account, profile }) {
+      if (account?.provider !== "google") return true;
+
+      const email = profile?.email?.toLowerCase().trim();
+      if (!email) return false;
+
+      try {
+        let dbUser = await prisma.user.findUnique({
+          where: { email },
+          include: { accounts: true },
+        });
+
+        if (!dbUser) {
+          const username = await uniqueUsername(email);
+          dbUser = await prisma.user.create({
+            data: {
+              email,
+              name: profile.name ?? username,
+              username,
+              avatarUrl: (profile as { picture?: string }).picture ?? null,
+              emailVerified: new Date(),
+              passwordHash: null,
+              roles: { create: [{ role: "user" as Role }] },
+            },
+            include: { accounts: true },
+          });
+        }
+
+        await prisma.account.upsert({
+          where: {
+            provider_providerAccountId: {
+              provider: "google",
+              providerAccountId: account.providerAccountId,
+            },
+          },
+          create: {
+            userId: dbUser.id,
+            type: account.type,
+            provider: account.provider,
+            providerAccountId: account.providerAccountId,
+            access_token: account.access_token ?? null,
+            refresh_token: account.refresh_token ?? null,
+            expires_at: account.expires_at ?? null,
+            token_type: account.token_type ?? null,
+            scope: account.scope ?? null,
+            id_token: account.id_token ?? null,
+          },
+          update: {
+            access_token: account.access_token ?? null,
+            refresh_token: account.refresh_token ?? null,
+            expires_at: account.expires_at ?? null,
+            id_token: account.id_token ?? null,
+          },
+        });
+
+        return true;
+      } catch {
+        return false;
+      }
+    },
+
+    async jwt({ token, user, account }) {
+      if (account?.provider === "google" && token.email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email.toLowerCase().trim() },
+          include: { roles: true },
+        });
+        if (dbUser) {
+          token.sub = dbUser.id;
+          token.username = dbUser.username;
+          token.avatarUrl = dbUser.avatarUrl ?? null;
+          token.roles = dbUser.roles.map(r => r.role);
+        }
+      } else if (user) {
         token.sub = user.id;
         token.username = user.username;
         token.avatarUrl = user.avatarUrl ?? null;
@@ -77,6 +155,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return token;
     },
+
     async session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub;
