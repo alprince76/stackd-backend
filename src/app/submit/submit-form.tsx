@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 const STEPS = ["Basic Info", "Media", "Details", "Preview"] as const;
 
-export default function SubmitPage({
+export default function SubmitForm({
   categories,
 }: {
   categories: { slug: string; name: string; emoji: string }[];

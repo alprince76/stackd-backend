@@ -15,7 +15,7 @@ export default function LoginPage() {
     <div className="mx-auto max-w-md px-4 py-16">
       <h1 className="text-3xl font-bold text-navy">Sign in</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Welcome back to Stackd. Dev: rifqi@stackd.id / DevPassword123!
+        Welcome back to Stackd.
       </p>
       <form
         className="mt-8 space-y-4"

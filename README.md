@@ -19,16 +19,22 @@ Formerly planned as separate NestJS backend — now unified in this repo.
 # Prerequisites: Node 20+, Docker Desktop
 
 cp .env.example .env
-# Set AUTH_SECRET (openssl rand -base64 32)
+# Set AUTH_SECRET: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 docker compose up -d
 npm install
-npx prisma migrate dev
-npm run db:seed
+npm run setup
 npm run dev
 ```
 
 Open http://localhost:3000
+
+### Windows troubleshooting
+
+- **Port 5432 in use:** Docker Postgres uses port `5433` (see `docker-compose.yml`). Ensure `.env` uses `localhost:5433`.
+- **`npm install` slow or hanging:** Project `.npmrc` sets `strict-ssl=false` for dev machines with SSL inspection (antivirus/proxy). If install still hangs, try a different network or mobile hotspot.
+- **Docker not running:** Start Docker Desktop first, then `docker compose up -d`.
+- **Prisma engine download fails (SSL):** `postinstall` uses `scripts/prisma-generate.js` to work around TLS issues on some Windows machines. If it fails while dev server is running, stop `npm run dev` and run `npm install` again.
 
 ## Dev Login
 
