@@ -76,7 +76,7 @@ export async function toggleVote(productId: string) {
   return { upvotes: count, hasUpvoted: !existing };
 }
 
-export async function addComment(productId: string, text: string) {
+export async function addComment(productId: string, text: string, parentId?: string) {
   const session = await auth();
   if (!session?.user) return { error: "Please sign in" };
   if (!text.trim()) return { error: "Comment cannot be empty" };
@@ -86,6 +86,7 @@ export async function addComment(productId: string, text: string) {
       productId,
       authorId: session.user.id,
       text: text.trim(),
+      parentId: parentId ?? null,
     },
   });
 
@@ -125,13 +126,21 @@ export async function submitProduct(formData: FormData) {
   const tags = String(formData.get("tags") ?? "")
     .split(",")
     .map(t => t.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .slice(0, 5);
   const website = String(formData.get("website") ?? "").trim();
   const thumbnailUrl = String(formData.get("thumbnailUrl") ?? "").trim() || null;
+  const videoUrl = String(formData.get("videoUrl") ?? "").trim() || null;
+  const coMakers = String(formData.get("coMakers") ?? "")
+    .split(",")
+    .map(u => u.trim())
+    .filter(Boolean);
 
   if (!name || !tagline || !description || !website) {
     return { error: "Please fill required fields" };
   }
+  if (tagline.length > 60) return { error: "Tagline must be 60 characters or less" };
+  if (description.length > 500) return { error: "Description must be 500 characters or less" };
 
   const slug = slugify(name);
   const existing = await prisma.product.findUnique({ where: { slug } });
@@ -145,7 +154,7 @@ export async function submitProduct(formData: FormData) {
   }
 
   const id = `sub-${Date.now()}`;
-  await prisma.product.create({
+  const product = await prisma.product.create({
     data: {
       id,
       slug,
@@ -154,6 +163,7 @@ export async function submitProduct(formData: FormData) {
       description,
       thumbnailUrl,
       screenshotUrls: [],
+      videoUrl,
       categoryId: category,
       tags,
       launchDate: new Date(),
@@ -163,7 +173,24 @@ export async function submitProduct(formData: FormData) {
     },
   });
 
+  // Link co-makers (best-effort; skip unknown usernames)
+  if (coMakers.length > 0) {
+    const coMakerUsers = await prisma.user.findMany({
+      where: { username: { in: coMakers } },
+      select: { id: true },
+    });
+    await prisma.productMaker.createMany({
+      data: coMakerUsers.map(u => ({
+        productId: product.id,
+        userId: u.id,
+        role: "maker" as const,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
   revalidatePath("/admin/queue");
+  revalidatePath(`/u/${session.user.username}`);
   return { success: true, slug };
 }
 
@@ -171,11 +198,13 @@ export async function approveProduct(productId: string) {
   const session = await auth();
   if (!session?.user.roles.includes("admin")) return { error: "Forbidden" };
 
+  const now = new Date();
   await prisma.product.update({
     where: { id: productId },
     data: {
       status: "approved",
-      publishedAt: new Date(),
+      publishedAt: now,
+      launchDate: now,
     },
   });
 
@@ -203,12 +232,14 @@ export async function scheduleProduct(productId: string, scheduledAtIso: string)
 
   const scheduledAt = new Date(scheduledAtIso);
   const isPast = scheduledAt <= new Date();
+  const approvalNow = isPast ? new Date() : null;
   await prisma.product.update({
     where: { id: productId },
     data: {
       status: isPast ? "approved" : "scheduled",
       scheduledAt,
-      publishedAt: isPast ? new Date() : null,
+      publishedAt: approvalNow,
+      launchDate: approvalNow ?? undefined,
     },
   });
 
@@ -323,16 +354,35 @@ export async function updateProfile(formData: FormData) {
   const session = await auth();
   if (!session?.user) return { error: "Unauthorized" };
 
+  const twitter = String(formData.get("twitter") ?? "").replace(/^@/, "").trim();
+
   await prisma.user.update({
     where: { id: session.user.id },
     data: {
-      name: String(formData.get("name") ?? session.user.name),
-      bio: String(formData.get("bio") ?? ""),
-      twitter: String(formData.get("twitter") ?? "") || null,
-      website: String(formData.get("website") ?? "") || null,
+      name: String(formData.get("name") ?? session.user.name).trim() || session.user.name,
+      bio: String(formData.get("bio") ?? "").slice(0, 160),
+      twitter: twitter || null,
+      linkedin: String(formData.get("linkedin") ?? "").trim() || null,
+      website: String(formData.get("website") ?? "").trim() || null,
+      city: String(formData.get("city") ?? "").trim() || null,
     },
   });
 
   revalidatePath(`/u/${session.user.username}`);
+  revalidatePath("/settings");
+  return { success: true };
+}
+
+export async function pinProduct(productId: string, position: number | null) {
+  const session = await auth();
+  if (!session?.user.roles.includes("admin")) return { error: "Forbidden" };
+
+  await prisma.product.update({
+    where: { id: productId },
+    data: { pinnedPosition: position },
+  });
+
+  revalidatePath("/");
+  revalidatePath("/admin/queue");
   return { success: true };
 }

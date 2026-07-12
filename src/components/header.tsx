@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { Search, Menu, X } from "lucide-react";
-import { HeaderClient } from "./header-client";
+import { Search } from "lucide-react";
+import { HeaderClient, UserDropdown } from "./header-client";
 import { Logo } from "./logo";
 import { auth } from "@/lib/auth";
 
 const NAV = [
   { label: "Discover", href: "/" },
-  { label: "Launch", href: "/submit" },
   { label: "Connect", href: "/creators" },
   { label: "Newsletter", href: "/newsletter" },
 ];
@@ -47,13 +46,11 @@ export async function Header() {
             Submit Product
           </Link>
           {user ? (
-            <Link href={`/u/${user.username}`}>
-              <img
-                src={user.avatarUrl ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`}
-                alt={user.name}
-                className="h-9 w-9 rounded-full border border-border bg-light-gray"
-              />
-            </Link>
+            <UserDropdown user={{
+              username: user.username,
+              name: user.name,
+              avatarUrl: user.avatarUrl,
+            }} />
           ) : (
             <Link
               href="/login"

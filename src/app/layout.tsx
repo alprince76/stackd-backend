@@ -3,6 +3,7 @@ import { Sora } from "next/font/google";
 import { Toaster } from "sonner";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
 const sora = Sora({ subsets: ["latin"], variable: "--font-sora" });
@@ -16,10 +17,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={sora.variable}>
-        <Header />
-        <main>{children}</main>
-        <Footer />
-        <Toaster position="top-center" richColors />
+        <Providers>
+          <Header />
+          <main>{children}</main>
+          <Footer />
+          <Toaster position="top-center" richColors />
+        </Providers>
       </body>
     </html>
   );

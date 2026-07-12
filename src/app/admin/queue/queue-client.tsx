@@ -2,8 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Check, X, Calendar } from "lucide-react";
-import { approveProduct, rejectProduct, scheduleProduct } from "@/lib/actions/app";
+import { Check, X, Calendar, Pin, PinOff } from "lucide-react";
+import { approveProduct, rejectProduct, scheduleProduct, pinProduct } from "@/lib/actions/app";
 import { toast } from "sonner";
 
 type QueueProduct = {
@@ -13,19 +13,24 @@ type QueueProduct = {
   thumbnailUrl: string | null;
   maker: { username: string; name: string };
   categoryId: string;
+  pinnedPosition: number | null;
+  status: string;
 };
 
 export function AdminQueueClient({
   pending,
   scheduled,
+  approved,
 }: {
   pending: QueueProduct[];
   scheduled: QueueProduct[];
+  approved: QueueProduct[];
 }) {
   const router = useRouter();
   const [pendingState, startTransition] = useTransition();
   const [scheduleFor, setScheduleFor] = useState<QueueProduct | null>(null);
   const [scheduleAt, setScheduleAt] = useState("");
+  const [pinInput, setPinInput] = useState<Record<string, string>>({});
 
   const run = (fn: () => Promise<{ error?: string; success?: boolean }>, msg: string) => {
     startTransition(async () => {
@@ -36,6 +41,12 @@ export function AdminQueueClient({
         router.refresh();
       }
     });
+  };
+
+  const handlePin = (productId: string, currentPin: number | null) => {
+    const inputVal = pinInput[productId];
+    const newPosition = inputVal ? parseInt(inputVal, 10) : null;
+    run(() => pinProduct(productId, newPosition), currentPin !== null ? "Unpinned" : "Pinned");
   };
 
   return (
@@ -52,7 +63,7 @@ export function AdminQueueClient({
         )}
         {pending.map(p => (
           <article key={p.id} className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-card p-4">
-            <img src={p.thumbnailUrl ?? ""} alt={p.name} className="h-14 w-14 rounded-xl border border-border" />
+            <img src={p.thumbnailUrl ?? `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`} alt={p.name} className="h-14 w-14 rounded-xl border border-border" />
             <div className="min-w-0 flex-1">
               <h3 className="font-semibold text-navy">{p.name}</h3>
               <p className="text-sm text-muted-foreground">{p.tagline}</p>
@@ -81,6 +92,54 @@ export function AdminQueueClient({
           <ul className="mt-3 space-y-2">
             {scheduled.map(p => (
               <li key={p.id} className="rounded-xl border border-border bg-card p-3 text-sm">{p.name}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {approved.length > 0 && (
+        <section className="mt-12">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            Approved — Pin Management ({approved.length})
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">Pinned products always appear first in the leaderboard.</p>
+          <ul className="mt-3 space-y-2">
+            {approved.map(p => (
+              <li key={p.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3">
+                <img src={p.thumbnailUrl ?? `https://api.dicebear.com/7.x/shapes/svg?seed=${p.id}`} alt={p.name} className="h-10 w-10 rounded-lg border border-border" />
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-navy text-sm">{p.name}</div>
+                  {p.pinnedPosition !== null && (
+                    <div className="text-xs text-amber-600 font-medium">Pinned at position {p.pinnedPosition}</div>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Position"
+                    value={pinInput[p.id] ?? ""}
+                    onChange={e => setPinInput(prev => ({ ...prev, [p.id]: e.target.value }))}
+                    className="w-24 rounded-xl border border-border px-3 py-1.5 text-sm"
+                  />
+                  <button
+                    type="button"
+                    disabled={pendingState}
+                    onClick={() => handlePin(p.id, p.pinnedPosition)}
+                    className={`inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-sm font-semibold ${
+                      p.pinnedPosition !== null
+                        ? "border border-border text-navy hover:bg-light-gray"
+                        : "bg-amber-500 text-white hover:bg-amber-600"
+                    }`}
+                  >
+                    {p.pinnedPosition !== null ? (
+                      <><PinOff className="h-3.5 w-3.5" /> Unpin</>
+                    ) : (
+                      <><Pin className="h-3.5 w-3.5" /> Pin</>
+                    )}
+                  </button>
+                </div>
+              </li>
             ))}
           </ul>
         </section>

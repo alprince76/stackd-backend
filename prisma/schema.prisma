@@ -26,6 +26,11 @@ enum NewsletterStatus {
   published
 }
 
+enum TeamRole {
+  maker
+  hunter
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -36,18 +41,21 @@ model User {
   avatarUrl     String?
   bio           String    @default("")
   twitter       String?
+  linkedin      String?
   website       String?
+  city          String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts  Account[]
-  sessions  Session[]
-  roles     UserRole[]
-  products  Product[]  @relation("MakerProducts")
-  votes     Vote[]
-  comments  Comment[]
-  followers Follow[] @relation("Following")
-  following Follow[] @relation("Follower")
+  accounts     Account[]
+  sessions     Session[]
+  roles        UserRole[]
+  products     Product[]      @relation("MakerProducts")
+  votes        Vote[]
+  comments     Comment[]
+  followers    Follow[]       @relation("Following")
+  following    Follow[]       @relation("Follower")
+  teamProducts ProductMaker[]
 }
 
 model UserRole {
@@ -107,6 +115,7 @@ model Product {
   description     String        @db.Text
   thumbnailUrl    String?
   screenshotUrls  String[]
+  videoUrl        String?
   categoryId      String
   category        Category      @relation(fields: [categoryId], references: [slug])
   tags            String[]
@@ -115,14 +124,26 @@ model Product {
   makerId         String
   maker           User          @relation("MakerProducts", fields: [makerId], references: [id])
   status          ProductStatus @default(pending)
+  pinnedPosition  Int?
   scheduledAt     DateTime?
   publishedAt     DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   votes           Vote[]
   comments        Comment[]
+  teamMembers     ProductMaker[]
 
   @@index([status, launchDate(sort: Desc)])
+}
+
+model ProductMaker {
+  productId String
+  userId    String
+  role      TeamRole @default(maker)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([productId, userId])
 }
 
 model Vote {
@@ -141,10 +162,13 @@ model Comment {
   productId String
   authorId  String
   text      String    @db.Text
+  parentId  String?
   createdAt DateTime  @default(now())
   deletedAt DateTime?
   product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent    Comment?  @relation("Replies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("Replies")
 
   @@index([productId, createdAt(sort: Desc)])
 }

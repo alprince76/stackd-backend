@@ -26,6 +26,12 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         text: c.text,
         createdAt: formatRelativeTime(c.createdAt),
         author: c.author,
+        replies: c.replies.map(r => ({
+          id: r.id,
+          text: r.text,
+          createdAt: formatRelativeTime(r.createdAt),
+          author: r.author,
+        })),
       }))}
     />
   );

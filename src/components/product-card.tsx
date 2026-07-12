@@ -40,7 +40,7 @@ export function ProductCard({
       )}
       <Link href={`/products/${product.slug}`} className="shrink-0">
         <img
-          src={product.thumbnailUrl ?? ""}
+          src={product.thumbnailUrl ?? `https://api.dicebear.com/7.x/shapes/svg?seed=${product.slug}`}
           alt={product.name}
           className="h-16 w-16 rounded-xl border border-border bg-light-gray object-cover sm:h-20 sm:w-20"
         />

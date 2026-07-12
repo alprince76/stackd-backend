@@ -1,3 +1,5 @@
+export const revalidate = 300;
+
 import Link from "next/link";
 import { Sparkles, TrendingUp } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
