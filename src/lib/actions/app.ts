@@ -130,6 +130,10 @@ export async function submitProduct(formData: FormData) {
     .slice(0, 5);
   const website = String(formData.get("website") ?? "").trim();
   const thumbnailUrl = String(formData.get("thumbnailUrl") ?? "").trim() || null;
+  const screenshotUrls = String(formData.get("screenshotUrls") ?? "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean);
   const videoUrl = String(formData.get("videoUrl") ?? "").trim() || null;
   const coMakers = String(formData.get("coMakers") ?? "")
     .split(",")
@@ -162,7 +166,7 @@ export async function submitProduct(formData: FormData) {
       tagline,
       description,
       thumbnailUrl,
-      screenshotUrls: [],
+      screenshotUrls,
       videoUrl,
       categoryId: category,
       tags,
@@ -356,6 +360,8 @@ export async function updateProfile(formData: FormData) {
 
   const twitter = String(formData.get("twitter") ?? "").replace(/^@/, "").trim();
 
+  const avatarUrl = String(formData.get("avatarUrl") ?? "").trim() || null;
+
   await prisma.user.update({
     where: { id: session.user.id },
     data: {
@@ -365,6 +371,7 @@ export async function updateProfile(formData: FormData) {
       linkedin: String(formData.get("linkedin") ?? "").trim() || null,
       website: String(formData.get("website") ?? "").trim() || null,
       city: String(formData.get("city") ?? "").trim() || null,
+      ...(avatarUrl ? { avatarUrl } : {}),
     },
   });
 

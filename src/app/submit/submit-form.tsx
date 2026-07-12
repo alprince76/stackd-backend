@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition, useRef } from "react";
 import { Check, ChevronLeft, X, Plus } from "lucide-react";
 import { submitProduct } from "@/lib/actions/app";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 import { toast } from "sonner";
 
 const STEPS = ["Basic Info", "Media", "Details", "Preview"] as const;
@@ -100,18 +101,35 @@ export default function SubmitForm({
       toast.error("Please fill in all required fields");
       return;
     }
-    const fd = new FormData();
-    fd.append("name", form.name);
-    fd.append("tagline", form.tagline);
-    fd.append("description", form.description);
-    fd.append("category", form.category);
-    fd.append("website", form.website);
-    fd.append("videoUrl", form.videoUrl);
-    fd.append("tags", tags.join(","));
-    fd.append("coMakers", coMakers.join(","));
-    fd.append("thumbnailUrl", "");
 
     startTransition(async () => {
+      let thumbnailUrl = "";
+      let screenshotUrls: string[] = [];
+
+      if (images.length > 0) {
+        toast.info("Uploading images…");
+        try {
+          const urls = await Promise.all(images.map(uploadToCloudinary));
+          thumbnailUrl = urls[0];
+          screenshotUrls = urls;
+        } catch {
+          toast.error("Image upload failed. Please try again.");
+          return;
+        }
+      }
+
+      const fd = new FormData();
+      fd.append("name", form.name);
+      fd.append("tagline", form.tagline);
+      fd.append("description", form.description);
+      fd.append("category", form.category);
+      fd.append("website", form.website);
+      fd.append("videoUrl", form.videoUrl);
+      fd.append("tags", tags.join(","));
+      fd.append("coMakers", coMakers.join(","));
+      fd.append("thumbnailUrl", thumbnailUrl);
+      fd.append("screenshotUrls", screenshotUrls.join(","));
+
       const res = await submitProduct(fd);
       if (res?.error) {
         if (res.error === "Please sign in") router.push("/login");

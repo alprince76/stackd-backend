@@ -9,7 +9,7 @@ export default async function SettingsPage() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { name: true, bio: true, twitter: true, linkedin: true, website: true, city: true },
+    select: { name: true, bio: true, twitter: true, linkedin: true, website: true, city: true, avatarUrl: true },
   });
 
   return (
@@ -21,6 +21,7 @@ export default async function SettingsPage() {
         linkedin: user?.linkedin ?? "",
         website: user?.website ?? "",
         city: user?.city ?? "",
+        avatarUrl: user?.avatarUrl ?? session.user.avatarUrl ?? "",
       }}
     />
   );

@@ -1,9 +1,11 @@
 "use client";
 
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
 import { useSession } from "next-auth/react";
+import { Camera } from "lucide-react";
 import { updateProfile } from "@/lib/actions/app";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 import { toast } from "sonner";
 
 type InitialData = {
@@ -13,18 +15,39 @@ type InitialData = {
   linkedin: string;
   website: string;
   city: string;
+  avatarUrl: string;
 };
 
 export function SettingsForm({ initial }: { initial: InitialData }) {
   const router = useRouter();
   const { update: updateSession } = useSession();
   const [pending, startTransition] = useTransition();
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<InitialData>(initial);
 
   const update = (k: keyof InitialData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const preview = URL.createObjectURL(file);
+    setForm(f => ({ ...f, avatarUrl: preview }));
+    setAvatarUploading(true);
+    try {
+      const url = await uploadToCloudinary(file);
+      setForm(f => ({ ...f, avatarUrl: url }));
+    } catch {
+      toast.error("Avatar upload failed. Please try again.");
+      setForm(f => ({ ...f, avatarUrl: initial.avatarUrl }));
+    } finally {
+      setAvatarUploading(false);
+      e.target.value = "";
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +71,38 @@ export function SettingsForm({ initial }: { initial: InitialData }) {
       <p className="mt-2 text-sm text-muted-foreground">Update your public profile information.</p>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+        {/* Avatar upload */}
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <img
+              src={form.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${form.name}`}
+              alt="Avatar"
+              className="h-20 w-20 rounded-2xl border border-border bg-light-gray object-cover"
+            />
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarUploading}
+              className="absolute -bottom-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-white shadow-sm hover:bg-light-gray disabled:opacity-50"
+            >
+              <Camera className="h-3.5 w-3.5 text-navy" />
+            </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-navy">Profile photo</p>
+            <p className="text-xs text-muted-foreground">
+              {avatarUploading ? "Uploading…" : "Click the camera icon to change"}
+            </p>
+          </div>
+        </div>
+
         <div>
           <label className="text-sm font-medium text-navy">Display name</label>
           <input
