@@ -158,7 +158,7 @@ export function DashboardClient({ stats, trends, topProducts, topMakers, votesCh
                 <Line type="monotone" dataKey="count" stroke="#06d6a0" strokeWidth={2} dot={false} />
                 <Tooltip
                   contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 11 }}
-                  formatter={(v: number) => [v, "signups"]}
+                  formatter={(v) => [v, "signups"]}
                   labelFormatter={() => ""}
                 />
               </LineChart>
