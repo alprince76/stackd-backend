@@ -150,12 +150,11 @@ export async function submitProduct(formData: FormData) {
   const existing = await prisma.product.findUnique({ where: { slug } });
   if (existing) return { error: "A product with this name already exists" };
 
-  const hasMaker = session.user.roles.includes("maker");
-  if (!hasMaker) {
-    await prisma.userRole.create({
-      data: { userId: session.user.id, role: Role.maker },
-    });
-  }
+  await prisma.userRole.upsert({
+    where: { userId_role: { userId: session.user.id, role: Role.maker } },
+    create: { userId: session.user.id, role: Role.maker },
+    update: {},
+  });
 
   const id = `sub-${Date.now()}`;
   const product = await prisma.product.create({
