@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Search } from "lucide-react";
 import { HeaderClient, UserDropdown, NotificationBell } from "./header-client";
+import { HeaderSearch } from "./header-search";
 import { Logo } from "./logo";
 import { auth } from "@/lib/auth";
 
@@ -35,13 +35,7 @@ export async function Header() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <Link
-            href="/search"
-            className="hidden items-center gap-2 rounded-xl border border-border bg-light-gray px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-white hover:text-navy sm:flex"
-          >
-            <Search className="h-4 w-4" />
-            <span className="hidden md:inline">Search products…</span>
-          </Link>
+          <HeaderSearch />
           {user && <NotificationBell />}
           <Link href="/submit" className="hidden rounded-xl bg-gradient-brand px-3.5 py-2 text-sm font-semibold text-white shadow-sm sm:inline-flex">
             Submit Product

@@ -137,7 +137,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
     },
 
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger }) {
+      // Refresh profile fields from DB after settings update (name / avatar)
+      if (trigger === "update" && token.sub) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { name: true, avatarUrl: true, username: true },
+        });
+        if (dbUser) {
+          token.name = dbUser.name;
+          token.avatarUrl = dbUser.avatarUrl ?? null;
+          token.username = dbUser.username;
+        }
+        return token;
+      }
+
       if (account?.provider === "google" && token.email) {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email.toLowerCase().trim() },
@@ -161,6 +175,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub;
+        session.user.name = (token.name as string) ?? session.user.name;
         session.user.username = (token.username as string) ?? "";
         session.user.avatarUrl = (token.avatarUrl as string | null) ?? null;
         session.user.roles = (token.roles as Role[]) ?? [];

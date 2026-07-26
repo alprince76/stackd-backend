@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import {
   LogOut, User, Settings, Bell, Check, ArrowBigUp,
   MessageCircle, UserPlus, LayoutDashboard, X,
@@ -271,8 +271,14 @@ export function HeaderClient({
 
 /* ─────────────────────────── User dropdown ─────────────────────────── */
 export function UserDropdown({ user }: { user: UserProp }) {
+  const { data: session } = useSession();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  // Prefer live session (updates immediately after profile save)
+  const avatarUrl = session?.user?.avatarUrl ?? user.avatarUrl;
+  const displayName = session?.user?.name ?? user.name;
+  const username = session?.user?.username ?? user.username;
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -292,17 +298,17 @@ export function UserDropdown({ user }: { user: UserProp }) {
         aria-label="User menu"
       >
         <img
-          src={user.avatarUrl ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`}
-          alt={user.name}
-          className="h-9 w-9 rounded-full border border-border bg-light-gray"
+          src={avatarUrl ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${username}`}
+          alt={displayName}
+          className="h-9 w-9 rounded-full border border-border bg-light-gray object-cover"
         />
       </button>
 
       {open && (
         <div className="absolute right-0 top-11 z-50 w-52 rounded-xl border border-border bg-white py-1 shadow-lg">
           <div className="border-b border-border px-3 py-2">
-            <p className="text-xs font-semibold text-navy">{user.name}</p>
-            <p className="text-xs text-muted-foreground">@{user.username}</p>
+            <p className="text-xs font-semibold text-navy">{displayName}</p>
+            <p className="text-xs text-muted-foreground">@{username}</p>
           </div>
           <Link
             href="/dashboard"

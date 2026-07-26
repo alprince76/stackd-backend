@@ -8,8 +8,8 @@ import {
 } from "recharts";
 import {
   Eye, ArrowBigUp, MessageCircle, MousePointerClick,
-  TrendingUp, TrendingDown, Package, Bell, Activity,
-  BarChart2, Check, Clock, UserPlus, User,
+  TrendingUp, TrendingDown, Package, Activity,
+  BarChart2,
 } from "lucide-react";
 
 /* ─────────────────────────── Types ─────────────────────────── */
@@ -39,14 +39,6 @@ const DAILY_VISITS = [
 const WEEKLY_VISITS = [
   { week: "W1", visits: 312 }, { week: "W2", visits: 489 }, { week: "W3", visits: 401 },
   { week: "W4", visits: 623 },
-];
-
-const MOCK_NOTIFS = [
-  { id: "1", icon: "check", title: "Product Approved", desc: "Your product is now live.", time: "2h ago", read: false },
-  { id: "2", icon: "upvote", title: "New Upvote", desc: "Someone upvoted your product.", time: "4h ago", read: false },
-  { id: "3", icon: "comment", title: "New Comment", desc: "Budi commented on your product.", time: "6h ago", read: true },
-  { id: "4", icon: "user", title: "New Follower", desc: "Sari started following you.", time: "1d ago", read: true },
-  { id: "5", icon: "clock", title: "Under Review", desc: "Your submission is under review.", time: "2d ago", read: true },
 ];
 
 function mockMetrics(product: Product) {
@@ -82,19 +74,10 @@ function StatCard({ label, value, icon: Icon, color, trend }: {
   );
 }
 
-function NotifIcon({ icon }: { icon: string }) {
-  if (icon === "check") return <Check className="h-4 w-4 text-green-500" />;
-  if (icon === "upvote") return <ArrowBigUp className="h-4 w-4 text-violet-500" />;
-  if (icon === "comment") return <MessageCircle className="h-4 w-4 text-emerald-500" />;
-  if (icon === "user") return <UserPlus className="h-4 w-4 text-coral" />;
-  return <Clock className="h-4 w-4 text-amber-500" />;
-}
-
 /* ─────────────────────────── Tabs ─────────────────────────── */
 const TABS = [
   { key: "analytics", label: "Analytics", icon: BarChart2 },
   { key: "products", label: "Products", icon: Package },
-  { key: "notifications", label: "Notifications", icon: Bell },
   { key: "activity", label: "Activity", icon: Activity },
 ] as const;
 type Tab = (typeof TABS)[number]["key"];
@@ -240,27 +223,6 @@ export function MakerDashboardClient({ username, products }: Props) {
               </article>
             );
           })}
-        </div>
-      )}
-
-      {/* ─── Notifications tab ─── */}
-      {tab === "notifications" && (
-        <div className="mt-8 space-y-2">
-          {MOCK_NOTIFS.map(n => (
-            <div key={n.id} className={`flex items-start gap-3 rounded-2xl border border-border p-4 ${!n.read ? "bg-violet-50/40" : "bg-card"}`}>
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-light-gray">
-                <NotifIcon icon={n.icon} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-navy">{n.title}</p>
-                  {!n.read && <span className="h-2 w-2 rounded-full bg-coral" />}
-                </div>
-                <p className="text-xs text-muted-foreground">{n.desc}</p>
-                <p className="mt-0.5 text-[10px] text-muted-foreground">{n.time}</p>
-              </div>
-            </div>
-          ))}
         </div>
       )}
 

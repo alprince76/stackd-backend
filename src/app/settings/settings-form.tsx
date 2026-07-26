@@ -77,7 +77,7 @@ export function SettingsForm({ initial }: { initial: InitialData }) {
         return;
       }
       toast.success("Profile updated");
-      await updateSession({ name: form.name });
+      await updateSession({ name: form.name, avatarUrl: form.avatarUrl });
       router.refresh();
     });
   };
