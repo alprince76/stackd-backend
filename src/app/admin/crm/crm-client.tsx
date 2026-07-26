@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Search, Download, ExternalLink } from "lucide-react";
+import { Search, Download, Eye } from "lucide-react";
 
 export type CrmUser = {
   id: string;
@@ -190,11 +190,10 @@ export function CrmClient({ users }: { users: CrmUser[] }) {
                 <td className="px-4 py-3 text-xs text-muted-foreground">{u.joinedAt}</td>
                 <td className="px-4 py-3">
                   <Link
-                    href={`/u/${u.username}`}
-                    target="_blank"
+                    href={`/admin/crm/${u.username}`}
                     className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-[11px] font-semibold text-navy hover:bg-light-gray"
                   >
-                    <ExternalLink className="h-3 w-3" /> View
+                    <Eye className="h-3 w-3" /> View
                   </Link>
                 </td>
               </tr>

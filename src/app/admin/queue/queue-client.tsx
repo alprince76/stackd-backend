@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   Check, X, ArrowBigUp, MessageCircle, Eye, Star, StarOff,
@@ -31,28 +30,63 @@ function mockViews(product: QueueProduct) {
 }
 
 export function AdminQueueClient({
-  pending,
-  underReview,
-  approved,
+  pending: initialPending,
+  underReview: initialUnderReview,
+  approved: initialApproved,
 }: {
   pending: QueueProduct[];
   underReview: QueueProduct[];
   approved: QueueProduct[];
 }) {
-  const router = useRouter();
   const [tr, startTransition] = useTransition();
+  const [pending, setPending] = useState(initialPending);
+  const [underReview, setUnderReview] = useState(initialUnderReview);
+  const [approved, setApproved] = useState(initialApproved);
 
   const [rejectOpen, setRejectOpen] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  const run = (fn: () => Promise<{ error?: string; success?: boolean }>, msg: string) => {
+  const removeFrom = (list: QueueProduct[], id: string) => list.filter(p => p.id !== id);
+
+  const moveToUnderReviewLocal = (id: string) => {
+    const item = pending.find(p => p.id === id);
+    if (!item) return;
+    setPending(prev => removeFrom(prev, id));
+    setUnderReview(prev => [{ ...item, status: "underReview" }, ...prev]);
+  };
+
+  const approveLocal = (id: string) => {
+    const item = pending.find(p => p.id === id) ?? underReview.find(p => p.id === id);
+    if (!item) return;
+    setPending(prev => removeFrom(prev, id));
+    setUnderReview(prev => removeFrom(prev, id));
+    setApproved(prev => [{ ...item, status: "approved", pinnedPosition: null }, ...prev]);
+  };
+
+  const rejectLocal = (id: string) => {
+    setPending(prev => removeFrom(prev, id));
+    setUnderReview(prev => removeFrom(prev, id));
+  };
+
+  const pinLocal = (id: string, position: number | null) => {
+    setApproved(prev =>
+      prev.map(p => (p.id === id ? { ...p, pinnedPosition: position } : p)),
+    );
+  };
+
+  const run = (
+    fn: () => Promise<{ error?: string; success?: boolean }>,
+    msg: string,
+    onSuccess?: () => void,
+  ) => {
     startTransition(async () => {
       const res = await fn();
-      if (res?.error) toast.error(res.error);
-      else {
-        toast.success(msg);
-        router.refresh();
+      if (res?.error) {
+        toast.error(res.error);
+        return;
       }
+      toast.success(msg);
+      onSuccess?.();
     });
   };
 
@@ -66,12 +100,12 @@ export function AdminQueueClient({
       toast.error("Rejection reason is required");
       return;
     }
-    run(() => rejectProduct(id, rejectReason.trim()), `Rejected ${name}`);
+    const reason = rejectReason.trim();
     setRejectOpen(null);
     setRejectReason("");
+    run(() => rejectProduct(id, reason), `Rejected ${name}`, () => rejectLocal(id));
   };
 
-  /* ─────────────────────────── Product card ─────────────────────────── */
   function QueueCard({ p, section }: { p: QueueProduct; section: "pending" | "underReview" | "approved" }) {
     const views = mockViews(p);
     const isFeatured = p.pinnedPosition !== null;
@@ -97,7 +131,6 @@ export function AdminQueueClient({
             <p className="text-xs text-muted-foreground">by @{p.maker.username}</p>
           </div>
 
-          {/* Read-only metrics for under-review & approved */}
           {(section === "underReview" || section === "approved") && (
             <div className="flex gap-2 text-center">
               {[
@@ -114,12 +147,15 @@ export function AdminQueueClient({
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex flex-wrap gap-2">
             {section === "pending" && (
               <>
                 <button type="button" disabled={tr}
-                  onClick={() => run(() => moveToUnderReview(p.id), `Moved "${p.name}" to Under Review`)}
+                  onClick={() => run(
+                    () => moveToUnderReview(p.id),
+                    `Moved "${p.name}" to Under Review`,
+                    () => moveToUnderReviewLocal(p.id),
+                  )}
                   className="inline-flex items-center gap-1 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100">
                   <ClockArrowUp className="h-4 w-4" /> Under Review
                 </button>
@@ -127,7 +163,8 @@ export function AdminQueueClient({
                   className="inline-flex items-center gap-1 rounded-xl border border-error/40 px-3 py-2 text-sm text-error hover:bg-red-50">
                   <X className="h-4 w-4" /> Reject
                 </button>
-                <button type="button" disabled={tr} onClick={() => run(() => approveProduct(p.id), `Approved ${p.name}`)}
+                <button type="button" disabled={tr}
+                  onClick={() => run(() => approveProduct(p.id), `Approved ${p.name}`, () => approveLocal(p.id))}
                   className="inline-flex items-center gap-1 rounded-xl bg-success px-3 py-2 text-sm font-semibold text-white">
                   <Check className="h-4 w-4" /> Approve
                 </button>
@@ -139,7 +176,8 @@ export function AdminQueueClient({
                   className="inline-flex items-center gap-1 rounded-xl border border-error/40 px-3 py-2 text-sm text-error hover:bg-red-50">
                   <X className="h-4 w-4" /> Reject
                 </button>
-                <button type="button" disabled={tr} onClick={() => run(() => approveProduct(p.id), `Approved ${p.name}`)}
+                <button type="button" disabled={tr}
+                  onClick={() => run(() => approveProduct(p.id), `Approved ${p.name}`, () => approveLocal(p.id))}
                   className="inline-flex items-center gap-1 rounded-xl bg-success px-3 py-2 text-sm font-semibold text-white">
                   <Check className="h-4 w-4" /> Approve
                 </button>
@@ -148,13 +186,13 @@ export function AdminQueueClient({
             {section === "approved" && (
               isFeatured ? (
                 <button type="button" disabled={tr}
-                  onClick={() => run(() => pinProduct(p.id, null), `Unfeatured ${p.name}`)}
+                  onClick={() => run(() => pinProduct(p.id, null), `Unfeatured ${p.name}`, () => pinLocal(p.id, null))}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-light-gray">
                   <StarOff className="h-3.5 w-3.5" /> Unfeature
                 </button>
               ) : (
                 <button type="button" disabled={tr}
-                  onClick={() => run(() => pinProduct(p.id, 1), `Featured ${p.name}`)}
+                  onClick={() => run(() => pinProduct(p.id, 1), `Featured ${p.name}`, () => pinLocal(p.id, 1))}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">
                   <Star className="h-3.5 w-3.5" /> Feature
                 </button>
@@ -163,7 +201,6 @@ export function AdminQueueClient({
           </div>
         </div>
 
-        {/* Reject inline form */}
         {rejectOpen === p.id && (
           <div className="border-t border-error/30 bg-red-50 p-4">
             <p className="mb-2 text-sm font-semibold text-error">Rejection Reason <span className="text-error">*</span></p>
@@ -195,7 +232,6 @@ export function AdminQueueClient({
       <div className="text-xs font-semibold uppercase tracking-wider text-coral">Admin</div>
       <h1 className="mt-1 text-3xl font-bold text-navy">Submission Queue</h1>
 
-      {/* ── Pending ── */}
       <section className="mt-8 space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Pending ({pending.length})</h2>
         {pending.length === 0 && (
@@ -204,7 +240,6 @@ export function AdminQueueClient({
         {pending.map(p => <QueueCard key={p.id} p={p} section="pending" />)}
       </section>
 
-      {/* ── Under Review ── */}
       <section className="mt-10 space-y-3">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Under Review ({underReview.length})</h2>
         {underReview.length === 0 && (
@@ -213,7 +248,6 @@ export function AdminQueueClient({
         {underReview.map(p => <QueueCard key={p.id} p={p} section="underReview" />)}
       </section>
 
-      {/* ── Approved + Feature Management ── */}
       {approved.length > 0 && (
         <section className="mt-10 space-y-3">
           <div>

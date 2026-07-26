@@ -475,7 +475,7 @@ export async function updateProfile(formData: FormData) {
 
 export async function setAdminRole(userId: string, grant: boolean) {
   const session = await auth();
-  if (!session?.user.roles.includes("admin")) return { error: "Forbidden" };
+  if (!session?.user.roles.includes("superadmin")) return { error: "Forbidden" };
   // Prevent self-demotion
   if (!grant && userId === session.user.id) return { error: "You cannot remove your own admin role" };
 
@@ -490,6 +490,54 @@ export async function setAdminRole(userId: string, grant: boolean) {
   }
 
   revalidatePath("/admin/users");
+  return { success: true };
+}
+
+export async function createAdminUser(data: {
+  email: string;
+  username: string;
+  name: string;
+  password: string;
+}) {
+  const session = await auth();
+  if (!session?.user.roles.includes("superadmin")) return { error: "Forbidden" };
+
+  const email = data.email.toLowerCase().trim();
+  const username = data.username.toLowerCase().trim();
+  const name = data.name.trim();
+  const password = data.password;
+
+  if (!email || !username || !name || !password) {
+    return { error: "All fields are required" };
+  }
+  if (password.length < 8) {
+    return { error: "Password must be at least 8 characters" };
+  }
+  if (!/^[a-z0-9_]{3,24}$/.test(username)) {
+    return { error: "Username must be 3–24 chars (a-z, 0-9, underscore)" };
+  }
+
+  const existing = await prisma.user.findFirst({
+    where: { OR: [{ email }, { username }] },
+  });
+  if (existing) return { error: "Email or username already taken" };
+
+  const passwordHash = await bcrypt.hash(password, 12);
+  await prisma.user.create({
+    data: {
+      email,
+      username,
+      name,
+      passwordHash,
+      emailVerified: new Date(),
+      roles: {
+        create: [{ role: Role.user }, { role: Role.admin }],
+      },
+    },
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/crm");
   return { success: true };
 }
 

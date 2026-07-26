@@ -149,18 +149,22 @@ export function ProductDetailClient({
     : [primaryMaker, ...product.teamMembers];
 
   const handleVote = () => {
+    const prevUpvotes = upvotes;
+    const prevVoted = hasUpvoted;
+    setHasUpvoted(!prevVoted);
+    setUpvotes(prevVoted ? prevUpvotes - 1 : prevUpvotes + 1);
+
     startTransition(async () => {
       const res = await toggleVote(product.id);
       if (res?.error) {
+        setHasUpvoted(prevVoted);
+        setUpvotes(prevUpvotes);
         if (res.error === "Please sign in") router.push("/login");
         else toast.error(res.error);
         return;
       }
-      if (res.upvotes !== undefined) {
-        setUpvotes(res.upvotes);
-        setHasUpvoted(res.hasUpvoted ?? false);
-      }
-      router.refresh();
+      if (typeof res.upvotes === "number") setUpvotes(res.upvotes);
+      if (typeof res.hasUpvoted === "boolean") setHasUpvoted(res.hasUpvoted);
     });
   };
 

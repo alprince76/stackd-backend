@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Save, Send, X } from "lucide-react";
+import { Save, Send, X, Upload, ImageIcon } from "lucide-react";
 import { saveNewsletter } from "@/lib/actions/app";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 import { toast } from "sonner";
 
 type FormData = {
@@ -29,10 +30,31 @@ export function NewsletterForm({ initial }: { initial?: FormData }) {
   const router = useRouter();
   const [tr, start] = useTransition();
   const [form, setForm] = useState<FormData>(initial ?? EMPTY);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const set = (k: keyof FormData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
       setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const handleCoverFile = async (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+    setUploading(true);
+    try {
+      const url = await uploadToCloudinary(file);
+      setForm(f => ({ ...f, coverImageUrl: url }));
+      toast.success("Cover uploaded");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const submit = (status: "draft" | "published") => {
     if (!form.title.trim()) { toast.error("Title is required"); return; }
@@ -146,21 +168,64 @@ export function NewsletterForm({ initial }: { initial?: FormData }) {
           </div>
         </div>
 
-        {/* Cover image URL */}
+        {/* Cover image upload */}
         <div>
           <label className="block text-sm font-semibold text-navy">
-            Cover Image URL <span className="text-muted-foreground text-xs font-normal">(optional)</span>
+            Cover Image <span className="text-muted-foreground text-xs font-normal">(optional)</span>
           </label>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={e => handleCoverFile(e.target.files?.[0])}
+          />
+          <div
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={e => {
+              e.preventDefault();
+              setDragOver(false);
+              handleCoverFile(e.dataTransfer.files?.[0]);
+            }}
+            onClick={() => !uploading && fileRef.current?.click()}
+            className={`mt-1.5 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-4 py-8 transition-colors ${
+              dragOver ? "border-coral bg-coral/5" : "border-border bg-light-gray/30 hover:border-navy/40"
+            }`}
+          >
+            {form.coverImageUrl ? (
+              <div className="relative w-full">
+                <img src={form.coverImageUrl} alt="cover preview" className="mx-auto h-40 w-full max-w-md rounded-xl object-cover border border-border" />
+                <button
+                  type="button"
+                  onClick={e => { e.stopPropagation(); setForm(f => ({ ...f, coverImageUrl: "" })); }}
+                  className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 shadow border border-border hover:bg-white"
+                >
+                  <X className="h-4 w-4 text-navy" />
+                </button>
+              </div>
+            ) : (
+              <>
+                {uploading ? (
+                  <Upload className="h-8 w-8 animate-pulse text-coral" />
+                ) : (
+                  <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+                )}
+                <p className="mt-2 text-sm font-medium text-navy">
+                  {uploading ? "Uploading…" : "Drag & drop or click to upload"}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">PNG, JPG up to ~5MB</p>
+              </>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">Or paste an image URL:</p>
           <input
             type="url"
             value={form.coverImageUrl}
             onChange={set("coverImageUrl")}
             placeholder="https://…"
-            className="mt-1.5 w-full rounded-xl border border-border bg-white px-4 py-2.5 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+            className="mt-1 w-full rounded-xl border border-border bg-white px-4 py-2 text-sm outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
           />
-          {form.coverImageUrl && (
-            <img src={form.coverImageUrl} alt="cover preview" className="mt-3 h-32 w-full rounded-xl object-cover border border-border" />
-          )}
         </div>
 
         {/* Actions */}

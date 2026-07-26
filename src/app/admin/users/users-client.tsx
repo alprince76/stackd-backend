@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Shield, ShieldOff, ShieldCheck, User, Hammer } from "lucide-react";
-import { setAdminRole } from "@/lib/actions/app";
+import { Search, Shield, ShieldOff, ShieldCheck, User, Hammer, Plus, X, Crown } from "lucide-react";
+import { setAdminRole, createAdminUser } from "@/lib/actions/app";
 import { toast } from "sonner";
 
 type UserRow = {
@@ -21,6 +21,11 @@ const FILTERS = ["All", "Admin", "Maker", "User"] as const;
 type Filter = (typeof FILTERS)[number];
 
 function RoleBadge({ role }: { role: string }) {
+  if (role === "superadmin") return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+      <Crown className="h-3 w-3" /> Superadmin
+    </span>
+  );
   if (role === "admin") return (
     <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
       <ShieldCheck className="h-3 w-3" /> Admin
@@ -38,6 +43,8 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
+const EMPTY_FORM = { name: "", email: "", username: "", password: "" };
+
 export function AdminUsersClient({ users }: { users: UserRow[] }) {
   const router = useRouter();
   const [tr, startTransition] = useTransition();
@@ -45,6 +52,8 @@ export function AdminUsersClient({ users }: { users: UserRow[] }) {
   const [filter, setFilter] = useState<Filter>("All");
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<"grant" | "revoke" | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const filtered = users.filter(u => {
     const matchQ = !query ||
@@ -54,9 +63,9 @@ export function AdminUsersClient({ users }: { users: UserRow[] }) {
 
     const matchFilter =
       filter === "All" ||
-      (filter === "Admin" && u.roles.includes("admin")) ||
+      (filter === "Admin" && (u.roles.includes("admin") || u.roles.includes("superadmin"))) ||
       (filter === "Maker" && u.roles.includes("maker") && !u.roles.includes("admin")) ||
-      (filter === "User" && !u.roles.includes("admin") && !u.roles.includes("maker"));
+      (filter === "User" && !u.roles.includes("admin") && !u.roles.includes("superadmin") && !u.roles.includes("maker"));
 
     return matchQ && matchFilter;
   });
@@ -83,13 +92,38 @@ export function AdminUsersClient({ users }: { users: UserRow[] }) {
     });
   };
 
+  const submitCreate = () => {
+    startTransition(async () => {
+      const res = await createAdminUser(form);
+      if (res?.error) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`Admin ${form.name} created`);
+      setForm(EMPTY_FORM);
+      setShowCreate(false);
+      router.refresh();
+    });
+  };
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-      <div className="text-xs font-semibold uppercase tracking-wider text-coral">Admin</div>
-      <h1 className="mt-1 text-3xl font-bold text-navy">User Management</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {users.length} total users — promote or demote admin roles.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wider text-coral">Superadmin</div>
+          <h1 className="mt-1 text-3xl font-bold text-navy">User Management</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {users.length} total users — create admins or promote / demote roles.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowCreate(true)}
+          className="inline-flex items-center gap-2 rounded-xl bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+        >
+          <Plus className="h-4 w-4" /> Create Admin
+        </button>
+      </div>
 
       {/* Search + filter */}
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -143,7 +177,8 @@ export function AdminUsersClient({ users }: { users: UserRow[] }) {
                 </tr>
               )}
               {filtered.map(u => {
-                const isAdmin = u.roles.includes("admin");
+                const isAdmin = u.roles.includes("admin") || u.roles.includes("superadmin");
+                const isSuper = u.roles.includes("superadmin");
                 const isConfirming = confirmId === u.id;
                 return (
                   <tr key={u.id} className="hover:bg-light-gray/30">
@@ -169,7 +204,9 @@ export function AdminUsersClient({ users }: { users: UserRow[] }) {
                     <td className="px-4 py-3 text-center font-semibold text-navy">{u.productCount}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{u.joinedAt}</td>
                     <td className="px-4 py-3 text-right">
-                      {isConfirming ? (
+                      {isSuper ? (
+                        <span className="text-xs text-muted-foreground">Protected</span>
+                      ) : isConfirming ? (
                         <div className="flex items-center justify-end gap-2">
                           <span className="text-xs text-muted-foreground">
                             {confirmAction === "grant" ? "Make admin?" : "Remove admin?"}
@@ -208,6 +245,49 @@ export function AdminUsersClient({ users }: { users: UserRow[] }) {
           </table>
         </div>
       </div>
+
+      {/* Create Admin modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-navy">Create Admin</h2>
+              <button type="button" onClick={() => setShowCreate(false)} className="rounded-lg p-1 text-muted-foreground hover:bg-light-gray">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Creates a new account with Admin role.</p>
+            <div className="mt-5 space-y-3">
+              {([
+                ["name", "Full name", "text"],
+                ["email", "Email", "email"],
+                ["username", "Username", "text"],
+                ["password", "Password (min 8)", "password"],
+              ] as const).map(([key, label, type]) => (
+                <div key={key}>
+                  <label className="block text-xs font-semibold text-navy">{label}</label>
+                  <input
+                    type={type}
+                    value={form[key]}
+                    onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                    className="mt-1 w-full rounded-xl border border-border px-3 py-2 text-sm outline-none focus:border-violet-400"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={() => setShowCreate(false)}
+                className="rounded-xl border border-border px-4 py-2 text-sm font-semibold text-navy hover:bg-light-gray">
+                Cancel
+              </button>
+              <button type="button" disabled={tr} onClick={submitCreate}
+                className="rounded-xl bg-coral px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+                Create Admin
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

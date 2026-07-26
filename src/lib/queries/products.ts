@@ -305,8 +305,7 @@ export async function getDashboardStats() {
     prisma.user.count({ where: { username: { not: { startsWith: "voter" } } } }),
     prisma.vote.count(),
     prisma.comment.count({ where: { deletedAt: null } }),
-    // "underReview" added after migration runs; for now count pending + scheduled
-    prisma.product.count({ where: { status: { in: ["pending", "scheduled"] } } }),
+    prisma.product.count({ where: { status: { in: ["pending", "underReview", "scheduled"] } } }),
   ]);
   return { products, users, votes, comments, pending };
 }

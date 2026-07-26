@@ -9,10 +9,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/login");
   }
 
-  // Fetch pending count for queue badge
-  // Note: "underReview" is included after migration runs on Vercel deploy
   const pendingCount = await prisma.product.count({
-    where: { status: "pending" },
+    where: { status: { in: ["pending", "underReview"] } },
   });
 
   const isSuperAdmin = session.user.roles.includes("superadmin");

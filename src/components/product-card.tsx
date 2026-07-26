@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { ArrowBigUp, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toggleVote } from "@/lib/actions/app";
 import type { ProductWithMeta } from "@/lib/types";
+import { toast } from "sonner";
 
 export function ProductCard({
   product,
@@ -20,17 +21,34 @@ export function ProductCard({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [upvotes, setUpvotes] = useState(product.upvotes);
+  const [hasUpvoted, setHasUpvoted] = useState(product.hasUpvoted);
   const cat = categories.find(c => c.slug === product.category);
   const isOwner = !!currentUserId && currentUserId === product.makerId;
 
   const handleVote = () => {
+    const prevUpvotes = upvotes;
+    const prevVoted = hasUpvoted;
+    // Optimistic update
+    setHasUpvoted(!prevVoted);
+    setUpvotes(prevVoted ? prevUpvotes - 1 : prevUpvotes + 1);
+
     startTransition(async () => {
       const res = await toggleVote(product.id);
       if (res?.error === "Please sign in") {
+        setHasUpvoted(prevVoted);
+        setUpvotes(prevUpvotes);
         router.push("/login");
         return;
       }
-      router.refresh();
+      if (res?.error) {
+        setHasUpvoted(prevVoted);
+        setUpvotes(prevUpvotes);
+        toast.error(res.error);
+        return;
+      }
+      if (typeof res?.upvotes === "number") setUpvotes(res.upvotes);
+      if (typeof res?.hasUpvoted === "boolean") setHasUpvoted(res.hasUpvoted);
     });
   };
 
@@ -69,11 +87,10 @@ export function ProductCard({
         </div>
       </div>
 
-      {/* Vote button — disabled + tooltip when owner */}
       {isOwner ? (
         <div className="group/owner relative flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-xl border border-border bg-light-gray sm:h-20 sm:w-16">
           <ArrowBigUp className="h-5 w-5 text-muted-foreground" />
-          <span className="mt-0.5 text-sm font-bold text-muted-foreground">{product.upvotes}</span>
+          <span className="mt-0.5 text-sm font-bold text-muted-foreground">{upvotes}</span>
           <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-navy px-2 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover/owner:opacity-100">
             You cannot vote for your own product
           </span>
@@ -83,14 +100,14 @@ export function ProductCard({
           onClick={handleVote}
           disabled={pending}
           className={`flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-xl border transition-all sm:h-20 sm:w-16 ${
-            product.hasUpvoted
+            hasUpvoted
               ? "border-transparent bg-gradient-brand text-white shadow-card"
               : "border-border bg-white text-navy hover:border-navy"
           }`}
           aria-label="Upvote"
         >
-          <ArrowBigUp className={`h-5 w-5 ${product.hasUpvoted ? "fill-white" : ""}`} />
-          <span className="mt-0.5 text-sm font-bold">{product.upvotes}</span>
+          <ArrowBigUp className={`h-5 w-5 ${hasUpvoted ? "fill-white" : ""}`} />
+          <span className="mt-0.5 text-sm font-bold">{upvotes}</span>
         </button>
       )}
     </article>
