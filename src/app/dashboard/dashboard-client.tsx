@@ -9,7 +9,7 @@ import {
 import {
   Eye, ArrowBigUp, MessageCircle, MousePointerClick,
   TrendingUp, TrendingDown, Package, Activity,
-  BarChart2,
+  BarChart2, User,
 } from "lucide-react";
 
 /* ─────────────────────────── Types ─────────────────────────── */
