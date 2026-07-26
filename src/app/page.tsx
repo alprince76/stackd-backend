@@ -3,8 +3,9 @@ export const revalidate = 300;
 import Link from "next/link";
 import { Sparkles, TrendingUp } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
+import { FeaturedSection } from "@/components/featured-section";
 import { auth } from "@/lib/auth";
-import { getCategories, getVisibleProducts } from "@/lib/queries/products";
+import { getCategories, getVisibleProducts, getFeaturedProducts } from "@/lib/queries/products";
 import { HomeTabs } from "@/components/home-tabs";
 
 export default async function HomePage({
@@ -14,9 +15,10 @@ export default async function HomePage({
 }) {
   const { tab = "today" } = await searchParams;
   const session = await auth();
-  const [products, categories] = await Promise.all([
+  const [products, categories, featuredProducts] = await Promise.all([
     getVisibleProducts(tab, session?.user?.id),
     getCategories(),
+    getFeaturedProducts(session?.user?.id),
   ]);
 
   const topMakers = Array.from(
@@ -41,6 +43,8 @@ export default async function HomePage({
         </div>
       </section>
 
+      <FeaturedSection products={featuredProducts} />
+
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         <div className="grid gap-8 lg:grid-cols-[1fr_300px]">
           <div>
@@ -52,7 +56,7 @@ export default async function HomePage({
                 </p>
               )}
               {products.map((p, i) => (
-                <ProductCard key={p.id} product={p} rank={i + 1} categories={categories} />
+                <ProductCard key={p.id} product={p} rank={i + 1} categories={categories} currentUserId={session?.user?.id} />
               ))}
             </div>
           </div>

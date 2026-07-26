@@ -182,6 +182,12 @@ export async function requireAdmin() {
   return session;
 }
 
+export async function requireSuperAdmin() {
+  const session = await requireAuth();
+  if (!session.user.roles.includes("superadmin")) throw new Error("Forbidden");
+  return session;
+}
+
 export function hasRole(roles: Role[], role: Role) {
   return roles.includes(role);
 }

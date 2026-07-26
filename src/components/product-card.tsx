@@ -11,14 +11,17 @@ export function ProductCard({
   product,
   rank,
   categories,
+  currentUserId,
 }: {
   product: ProductWithMeta;
   rank?: number;
   categories: { slug: string; name: string; emoji: string }[];
+  currentUserId?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const cat = categories.find(c => c.slug === product.category);
+  const isOwner = !!currentUserId && currentUserId === product.makerId;
 
   const handleVote = () => {
     startTransition(async () => {
@@ -52,7 +55,7 @@ export function ProductCard({
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <Link href={`/u/${product.maker.username}`} className="flex items-center gap-1.5 hover:text-navy">
-            <img src={product.maker.avatarUrl ?? ""} alt="" className="h-4 w-4 rounded-full" />
+            <img src={product.maker.avatarUrl ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${product.maker.username}`} alt="" className="h-4 w-4 rounded-full" />
             <span>{product.maker.name.split(" ")[0]}</span>
           </Link>
           {cat && (
@@ -65,19 +68,31 @@ export function ProductCard({
           </span>
         </div>
       </div>
-      <button
-        onClick={handleVote}
-        disabled={pending}
-        className={`flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-xl border transition-all sm:h-20 sm:w-16 ${
-          product.hasUpvoted
-            ? "border-transparent bg-gradient-brand text-white shadow-card"
-            : "border-border bg-white text-navy hover:border-navy"
-        }`}
-        aria-label="Upvote"
-      >
-        <ArrowBigUp className={`h-5 w-5 ${product.hasUpvoted ? "fill-white" : ""}`} />
-        <span className="mt-0.5 text-sm font-bold">{product.upvotes}</span>
-      </button>
+
+      {/* Vote button — disabled + tooltip when owner */}
+      {isOwner ? (
+        <div className="group/owner relative flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-xl border border-border bg-light-gray sm:h-20 sm:w-16">
+          <ArrowBigUp className="h-5 w-5 text-muted-foreground" />
+          <span className="mt-0.5 text-sm font-bold text-muted-foreground">{product.upvotes}</span>
+          <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-navy px-2 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover/owner:opacity-100">
+            You cannot vote for your own product
+          </span>
+        </div>
+      ) : (
+        <button
+          onClick={handleVote}
+          disabled={pending}
+          className={`flex h-16 w-14 shrink-0 flex-col items-center justify-center rounded-xl border transition-all sm:h-20 sm:w-16 ${
+            product.hasUpvoted
+              ? "border-transparent bg-gradient-brand text-white shadow-card"
+              : "border-border bg-white text-navy hover:border-navy"
+          }`}
+          aria-label="Upvote"
+        >
+          <ArrowBigUp className={`h-5 w-5 ${product.hasUpvoted ? "fill-white" : ""}`} />
+          <span className="mt-0.5 text-sm font-bold">{product.upvotes}</span>
+        </button>
+      )}
     </article>
   );
 }

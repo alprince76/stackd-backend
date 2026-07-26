@@ -21,6 +21,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     <ProductDetailClient
       product={product}
       category={cat}
+      currentUserId={session?.user?.id}
       comments={comments.map(c => ({
         id: c.id,
         text: c.text,

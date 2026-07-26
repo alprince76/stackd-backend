@@ -18,6 +18,13 @@ type InitialData = {
   avatarUrl: string;
 };
 
+type LocalExtra = {
+  occupation: string;
+  gender: string;
+  dateOfBirth: string;
+  hideDob: boolean;
+};
+
 export function SettingsForm({ initial }: { initial: InitialData }) {
   const router = useRouter();
   const { update: updateSession } = useSession();
@@ -26,10 +33,20 @@ export function SettingsForm({ initial }: { initial: InitialData }) {
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<InitialData>(initial);
+  const [extra, setExtra] = useState<LocalExtra>({
+    occupation: "",
+    gender: "",
+    dateOfBirth: "",
+    hideDob: false,
+  });
 
   const update = (k: keyof InitialData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const updateExtra = (k: keyof LocalExtra) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setExtra(f => ({ ...f, [k]: e.type === "checkbox" ? (e.target as HTMLInputElement).checked : e.target.value }));
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -67,7 +84,7 @@ export function SettingsForm({ initial }: { initial: InitialData }) {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-12 sm:px-6">
-      <h1 className="text-3xl font-bold text-navy">Edit profile</h1>
+      <h1 className="text-3xl font-bold text-navy">Profile</h1>
       <p className="mt-2 text-sm text-muted-foreground">Update your public profile information.</p>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-5">
@@ -177,6 +194,58 @@ export function SettingsForm({ initial }: { initial: InitialData }) {
             placeholder="https://yourwebsite.com"
             className="mt-1 w-full rounded-xl border border-border px-3 py-2 text-sm"
           />
+        </div>
+
+        {/* ── Profile information (local state, not persisted) ── */}
+        <div className="border-t border-border pt-5">
+          <p className="mb-4 text-sm font-semibold text-navy">Profile Information</p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-navy">Occupation</label>
+              <input
+                value={extra.occupation}
+                onChange={updateExtra("occupation")}
+                placeholder="e.g. Software Engineer, Designer…"
+                className="mt-1 w-full rounded-xl border border-border px-3 py-2 text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-navy">Gender</label>
+              <select
+                value={extra.gender}
+                onChange={updateExtra("gender")}
+                className="mt-1 w-full rounded-xl border border-border px-3 py-2 text-sm"
+              >
+                <option value="">Prefer not to say</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="nonbinary">Non-binary</option>
+              </select>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-navy">Date of Birth</label>
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={extra.hideDob}
+                    onChange={updateExtra("hideDob")}
+                    className="rounded"
+                  />
+                  Hide from public profile
+                </label>
+              </div>
+              <input
+                type="date"
+                value={extra.dateOfBirth}
+                onChange={updateExtra("dateOfBirth")}
+                className="mt-1 w-full rounded-xl border border-border px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
         </div>
 
         <button

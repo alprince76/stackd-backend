@@ -54,6 +54,7 @@ export async function mapProduct(
     tags: string[];
     launchDate: Date;
     website: string;
+    makerId: string;
     status: ProductStatus;
     pinnedPosition?: number | null;
     scheduledAt: Date | null;
@@ -87,13 +88,8 @@ export async function mapProduct(
   userId?: string,
   hasUpvoted = false,
 ): Promise<ProductWithMeta> {
-  let voted = hasUpvoted;
-  if (userId && !hasUpvoted) {
-    const vote = await prisma.vote.findUnique({
-      where: { userId_productId: { userId, productId: product.id } },
-    });
-    voted = !!vote;
-  }
+  // hasUpvoted is pre-computed by the caller via batch query — no per-product DB hit needed
+  const voted = hasUpvoted;
 
   return {
     id: product.id,
@@ -111,6 +107,7 @@ export async function mapProduct(
     upvotes: product._count.votes,
     comments: product._count.comments,
     hasUpvoted: voted,
+    makerId: product.makerId,
     pinnedPosition: product.pinnedPosition ?? null,
     maker: product.maker,
     teamMembers: (product.teamMembers ?? []).map(tm => ({
@@ -122,6 +119,15 @@ export async function mapProduct(
     scheduledAt: product.scheduledAt?.toISOString() ?? null,
     publishedAt: product.publishedAt?.toISOString() ?? null,
   };
+}
+
+export async function batchVotedIds(userId: string | undefined, productIds: string[]) {
+  if (!userId || productIds.length === 0) return new Set<string>();
+  const votes = await prisma.vote.findMany({
+    where: { userId, productId: { in: productIds } },
+    select: { productId: true },
+  });
+  return new Set(votes.map(v => v.productId));
 }
 
 export async function getVisibleProducts(tab = "today", userId?: string) {
@@ -150,8 +156,9 @@ export async function getVisibleProducts(tab = "today", userId?: string) {
     orderBy: { launchDate: "desc" },
   });
 
+  const votedIds = await batchVotedIds(userId, products.map(p => p.id));
   const withVotes = await Promise.all(
-    products.map(async p => mapProduct(p, userId)),
+    products.map(p => mapProduct(p, userId, votedIds.has(p.id))),
   );
 
   // Pinned products always come first (sorted by pinnedPosition asc),
@@ -166,13 +173,24 @@ export async function getVisibleProducts(tab = "today", userId?: string) {
   return [...pinned, ...unpinned];
 }
 
+export async function getFeaturedProducts(userId?: string) {
+  const products = await prisma.product.findMany({
+    where: { status: "approved", publishedAt: { not: null }, pinnedPosition: { not: null } },
+    include: productInclude,
+    orderBy: { pinnedPosition: "asc" },
+  });
+  const votedIds = await batchVotedIds(userId, products.map(p => p.id));
+  return Promise.all(products.map(p => mapProduct(p, userId, votedIds.has(p.id))));
+}
+
 export async function getProductBySlug(slug: string, userId?: string) {
   const product = await prisma.product.findUnique({
     where: { slug, status: "approved", publishedAt: { not: null } },
     include: productInclude,
   });
   if (!product) return null;
-  return mapProduct(product, userId);
+  const votedIds = await batchVotedIds(userId, [product.id]);
+  return mapProduct(product, userId, votedIds.has(product.id));
 }
 
 export async function getCategories() {
@@ -193,7 +211,10 @@ export async function getProductsByCategory(slug: string, userId?: string) {
     include: productInclude,
     orderBy: { launchDate: "desc" },
   });
-  const mapped = await Promise.all(products.map(p => mapProduct(p, userId)));
+  const votedIds = await batchVotedIds(userId, products.map(p => p.id));
+  const mapped = await Promise.all(
+    products.map(p => mapProduct(p, userId, votedIds.has(p.id))),
+  );
   return mapped.sort(
     (a, b) => hnScore(b.upvotes, b.publishedAt) - hnScore(a.upvotes, a.publishedAt),
   );
@@ -232,7 +253,8 @@ export async function searchProducts(q: string, userId?: string) {
     include: productInclude,
     take: 50,
   });
-  return Promise.all(products.map(p => mapProduct(p, userId)));
+  const votedIds = await batchVotedIds(userId, products.map(p => p.id));
+  return Promise.all(products.map(p => mapProduct(p, userId, votedIds.has(p.id))));
 }
 
 export async function getComments(productId: string) {
@@ -283,6 +305,7 @@ export async function getDashboardStats() {
     prisma.user.count({ where: { username: { not: { startsWith: "voter" } } } }),
     prisma.vote.count(),
     prisma.comment.count({ where: { deletedAt: null } }),
+    // "underReview" added after migration runs; for now count pending + scheduled
     prisma.product.count({ where: { status: { in: ["pending", "scheduled"] } } }),
   ]);
   return { products, users, votes, comments, pending };

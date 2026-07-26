@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { auth, signIn } from "@/lib/auth";
 import { Role } from "@prisma/client";
 import { slugify } from "@/lib/utils";
+import { createNotif } from "@/lib/notify";
 
 export async function registerUser(formData: FormData) {
   const email = String(formData.get("email") ?? "").toLowerCase().trim();
@@ -46,7 +47,13 @@ export async function loginUser(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   try {
     await signIn("credentials", { email, password, redirect: false });
-    return { success: true };
+    // Check if user is admin so the client can redirect appropriately
+    const dbUser = await prisma.user.findUnique({
+      where: { email },
+      include: { roles: true },
+    });
+    const isAdmin = dbUser?.roles.some(r => r.role === "admin") ?? false;
+    return { success: true, isAdmin };
   } catch {
     return { error: "Invalid email or password" };
   }
@@ -55,6 +62,13 @@ export async function loginUser(formData: FormData) {
 export async function toggleVote(productId: string) {
   const session = await auth();
   if (!session?.user) return { error: "Please sign in" };
+
+  // Prevent maker from voting on their own product
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { makerId: true, name: true, slug: true },
+  });
+  if (product?.makerId === session.user.id) return { error: "You cannot vote for your own product" };
 
   const existing = await prisma.vote.findUnique({
     where: { userId_productId: { userId: session.user.id, productId } },
@@ -68,6 +82,16 @@ export async function toggleVote(productId: string) {
     await prisma.vote.create({
       data: { userId: session.user.id, productId },
     });
+    // Notify maker of new upvote (fire-and-forget)
+    if (product?.makerId) {
+      await createNotif(
+        product.makerId,
+        "product_upvoted",
+        "Someone upvoted your product!",
+        `${session.user.name} upvoted ${product.name}.`,
+        `/products/${product.slug}`,
+      );
+    }
   }
 
   const count = await prisma.vote.count({ where: { productId } });
@@ -81,6 +105,11 @@ export async function addComment(productId: string, text: string, parentId?: str
   if (!session?.user) return { error: "Please sign in" };
   if (!text.trim()) return { error: "Comment cannot be empty" };
 
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { makerId: true, name: true, slug: true },
+  });
+
   await prisma.comment.create({
     data: {
       productId,
@@ -89,6 +118,17 @@ export async function addComment(productId: string, text: string, parentId?: str
       parentId: parentId ?? null,
     },
   });
+
+  // Notify maker if someone else comments
+  if (product && product.makerId !== session.user.id) {
+    await createNotif(
+      product.makerId,
+      "product_commented",
+      "New comment on your product",
+      `${session.user.name} commented on ${product.name}.`,
+      `/products/${product.slug}`,
+    );
+  }
 
   revalidatePath(`/products/${productId}`);
   return { success: true };
@@ -197,33 +237,78 @@ export async function submitProduct(formData: FormData) {
   return { success: true, slug };
 }
 
+export async function moveToUnderReview(productId: string) {
+  const session = await auth();
+  if (!session?.user.roles.includes("admin")) return { error: "Forbidden" };
+
+  let product: { makerId: string; name: string; slug: string } | null = null;
+  try {
+    product = await prisma.product.update({
+      where: { id: productId },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: { status: "underReview" as any },
+      select: { makerId: true, name: true, slug: true },
+    });
+  } catch {
+    return { error: "Under Review status not yet available. Push to Vercel to run DB migration first." };
+  }
+
+  if (product) {
+    await createNotif(
+      product.makerId,
+      "product_under_review",
+      "Your product is under review",
+      `${product.name} is being reviewed by our team.`,
+      `/products/${product.slug}`,
+    );
+  }
+
+  revalidatePath("/admin/queue");
+  return { success: true };
+}
+
 export async function approveProduct(productId: string) {
   const session = await auth();
   if (!session?.user.roles.includes("admin")) return { error: "Forbidden" };
 
   const now = new Date();
-  await prisma.product.update({
+  const product = await prisma.product.update({
     where: { id: productId },
-    data: {
-      status: "approved",
-      publishedAt: now,
-      launchDate: now,
-    },
+    data: { status: "approved", publishedAt: now, launchDate: now },
+    select: { makerId: true, name: true, slug: true },
   });
+
+  await createNotif(
+    product.makerId,
+    "product_approved",
+    "Your product is live! 🎉",
+    `${product.name} has been approved and is now on the homepage.`,
+    `/products/${product.slug}`,
+  );
 
   revalidatePath("/admin/queue");
   revalidatePath("/");
   return { success: true };
 }
 
-export async function rejectProduct(productId: string) {
+export async function rejectProduct(productId: string, reason?: string) {
   const session = await auth();
   if (!session?.user.roles.includes("admin")) return { error: "Forbidden" };
+  if (!reason?.trim()) return { error: "Rejection reason is required" };
 
-  await prisma.product.update({
+  const product = await prisma.product.update({
     where: { id: productId },
     data: { status: "rejected", publishedAt: null },
+    select: { makerId: true, name: true, slug: true },
   });
+
+  await createNotif(
+    product.makerId,
+    "product_rejected",
+    "Product submission update",
+    `${product.name} was not approved. Reason: ${reason.trim()}`,
+    `/products/${product.slug}`,
+  );
 
   revalidatePath("/admin/queue");
   return { success: true };
@@ -283,6 +368,15 @@ export async function toggleFollow(username: string) {
   await prisma.follow.create({
     data: { followerId: session.user.id, followingId: target.id },
   });
+
+  await createNotif(
+    target.id,
+    "new_follower",
+    "New follower",
+    `${session.user.name} started following you.`,
+    `/u/${session.user.username}`,
+  );
+
   return { following: true };
 }
 
@@ -376,6 +470,26 @@ export async function updateProfile(formData: FormData) {
 
   revalidatePath(`/u/${session.user.username}`);
   revalidatePath("/settings");
+  return { success: true };
+}
+
+export async function setAdminRole(userId: string, grant: boolean) {
+  const session = await auth();
+  if (!session?.user.roles.includes("admin")) return { error: "Forbidden" };
+  // Prevent self-demotion
+  if (!grant && userId === session.user.id) return { error: "You cannot remove your own admin role" };
+
+  if (grant) {
+    await prisma.userRole.upsert({
+      where: { userId_role: { userId, role: Role.admin } },
+      create: { userId, role: Role.admin },
+      update: {},
+    });
+  } else {
+    await prisma.userRole.deleteMany({ where: { userId, role: Role.admin } });
+  }
+
+  revalidatePath("/admin/users");
   return { success: true };
 }
 

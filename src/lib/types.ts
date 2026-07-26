@@ -31,6 +31,7 @@ export type ProductWithMeta = {
   upvotes: number;
   comments: number;
   hasUpvoted: boolean;
+  makerId: string;
   pinnedPosition: number | null;
   maker: {
     username: string;

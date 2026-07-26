@@ -1,6 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { AdminSidebar } from "./admin-sidebar";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -8,16 +9,30 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/login");
   }
 
+  // Fetch pending count for queue badge
+  // Note: "underReview" is included after migration runs on Vercel deploy
+  const pendingCount = await prisma.product.count({
+    where: { status: "pending" },
+  });
+
+  const isSuperAdmin = session.user.roles.includes("superadmin");
+
   return (
-    <div>
-      <div className="border-b border-border bg-light-gray/50">
-        <div className="mx-auto flex max-w-6xl gap-4 px-4 py-3 text-sm">
-          <Link href="/admin/dashboard" className="font-semibold text-navy">Dashboard</Link>
-          <Link href="/admin/queue" className="text-muted-foreground hover:text-navy">Queue</Link>
-          <Link href="/admin/newsletter" className="text-muted-foreground hover:text-navy">Newsletter</Link>
-        </div>
+    <div className="flex h-screen overflow-hidden bg-light-gray/40">
+      <AdminSidebar
+        user={{
+          name: session.user.name,
+          email: session.user.email,
+          avatarUrl: session.user.avatarUrl,
+        }}
+        pendingCount={pendingCount}
+        isSuperAdmin={isSuperAdmin}
+      />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <main className="flex-1 overflow-y-auto">
+          {children}
+        </main>
       </div>
-      {children}
     </div>
   );
 }

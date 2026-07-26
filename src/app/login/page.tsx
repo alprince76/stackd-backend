@@ -73,7 +73,7 @@ export default function LoginPage() {
               return;
             }
             toast.success("Signed in");
-            router.push("/");
+            router.push(res.isAdmin ? "/admin" : "/");
             router.refresh();
           });
         }}

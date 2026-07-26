@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Twitter, Linkedin, Globe, MapPin } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
 import { auth } from "@/lib/auth";
-import { getCategories, getUserByUsername, mapProduct } from "@/lib/queries/products";
+import { batchVotedIds, getCategories, getUserByUsername, mapProduct } from "@/lib/queries/products";
 
 export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
@@ -12,8 +12,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
   if (!user) notFound();
 
   const categories = await getCategories();
+  const votedIds = await batchVotedIds(session?.user?.id, user.products.map(p => p.id));
   const products = await Promise.all(
-    user.products.map(p => mapProduct(p, session?.user?.id)),
+    user.products.map(p => mapProduct(p, session?.user?.id, votedIds.has(p.id))),
   );
 
   return (
@@ -77,7 +78,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
       <div className="mt-4 space-y-3">
         {products.length > 0 ? (
           products.map(p => (
-            <ProductCard key={p.id} product={p} categories={categories} />
+            <ProductCard key={p.id} product={p} categories={categories} currentUserId={session?.user?.id} />
           ))
         ) : (
           <p className="text-sm text-muted-foreground">No launches yet.</p>

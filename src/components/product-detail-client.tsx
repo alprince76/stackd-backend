@@ -115,10 +115,12 @@ export function ProductDetailClient({
   product,
   category,
   comments: initialComments,
+  currentUserId,
 }: {
   product: ProductWithMeta;
   category?: { slug: string; name: string; emoji: string };
   comments: Comment[];
+  currentUserId?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -128,6 +130,7 @@ export function ProductDetailClient({
   const [hasUpvoted, setHasUpvoted] = useState(product.hasUpvoted);
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
+  const isOwner = !!currentUserId && currentUserId === product.makerId;
 
   const fallbackImg = `https://api.dicebear.com/7.x/shapes/svg?seed=${product.slug}`;
   const screenshots = product.screenshotUrls.length
@@ -213,16 +216,26 @@ export function ProductDetailClient({
           </div>
         </div>
         <div className="flex flex-col items-stretch gap-2 sm:flex-row">
-          <button
-            onClick={handleVote}
-            disabled={pending}
-            className={`flex flex-col items-center justify-center rounded-xl border px-4 py-2 transition-all sm:px-5 sm:py-3 ${
-              hasUpvoted ? "border-transparent bg-gradient-brand text-white" : "border-border bg-white text-navy hover:border-navy"
-            }`}
-          >
-            <ArrowBigUp className={`h-5 w-5 ${hasUpvoted ? "fill-white" : ""}`} />
-            <span className="text-sm font-bold">{upvotes}</span>
-          </button>
+          {isOwner ? (
+            <div className="group/owner relative flex flex-col items-center justify-center rounded-xl border border-border bg-light-gray px-4 py-2 sm:px-5 sm:py-3">
+              <ArrowBigUp className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm font-bold text-muted-foreground">{upvotes}</span>
+              <span className="pointer-events-none absolute bottom-full left-1/2 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg bg-navy px-2 py-1 text-[10px] text-white opacity-0 transition-opacity group-hover/owner:opacity-100">
+                You cannot vote for your own product
+              </span>
+            </div>
+          ) : (
+            <button
+              onClick={handleVote}
+              disabled={pending}
+              className={`flex flex-col items-center justify-center rounded-xl border px-4 py-2 transition-all sm:px-5 sm:py-3 ${
+                hasUpvoted ? "border-transparent bg-gradient-brand text-white" : "border-border bg-white text-navy hover:border-navy"
+              }`}
+            >
+              <ArrowBigUp className={`h-5 w-5 ${hasUpvoted ? "fill-white" : ""}`} />
+              <span className="text-sm font-bold">{upvotes}</span>
+            </button>
+          )}
           <a href={product.website} target="_blank" rel="noreferrer"
             className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-navy px-4 py-2 text-sm font-semibold text-white sm:px-5 sm:py-3">
             Try it <ExternalLink className="h-4 w-4" />

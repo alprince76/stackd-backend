@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
-import { HeaderClient, UserDropdown } from "./header-client";
+import { HeaderClient, UserDropdown, NotificationBell } from "./header-client";
 import { Logo } from "./logo";
 import { auth } from "@/lib/auth";
 
 const NAV = [
   { label: "Discover", href: "/" },
-  { label: "Connect", href: "/creators" },
+  { label: "Creators", href: "/creators" },
   { label: "Newsletter", href: "/newsletter" },
 ];
 
@@ -42,6 +42,7 @@ export async function Header() {
             <Search className="h-4 w-4" />
             <span className="hidden md:inline">Search products…</span>
           </Link>
+          {user && <NotificationBell />}
           <Link href="/submit" className="hidden rounded-xl bg-gradient-brand px-3.5 py-2 text-sm font-semibold text-white shadow-sm sm:inline-flex">
             Submit Product
           </Link>
