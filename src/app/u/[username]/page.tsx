@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Twitter, Linkedin, Globe, MapPin } from "lucide-react";
+import { Twitter, Linkedin, Globe, MapPin, Rocket } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
 import { auth } from "@/lib/auth";
 import { batchVotedIds, getCategories, getUserByUsername, mapProduct } from "@/lib/queries/products";
@@ -81,10 +81,22 @@ export default async function ProfilePage({ params }: { params: Promise<{ userna
             <ProductCard key={p.id} product={p} categories={categories} currentUserId={session?.user?.id} />
           ))
         ) : (
-          <p className="text-sm text-muted-foreground">No launches yet.</p>
+          <div className="rounded-2xl border border-dashed border-border bg-light-gray/30 px-6 py-14 text-center">
+            <Rocket className="mx-auto h-10 w-10 text-muted-foreground/40" />
+            <p className="mt-4 font-semibold text-navy">No launches yet</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {user.name.split(" ")[0]} hasn’t published a product on Stackd.
+            </p>
+            <Link
+              href="/creators"
+              className="mt-5 inline-flex rounded-xl border border-border bg-white px-4 py-2 text-sm font-semibold text-navy hover:bg-light-gray"
+            >
+              Browse other creators
+            </Link>
+          </div>
         )}
       </div>
-      <Link href="/creators" className="mt-8 inline-block text-sm font-semibold text-navy">← All creators</Link>
+      <Link href="/creators" className="mt-8 inline-block text-sm font-semibold text-navy hover:underline">← All creators</Link>
     </div>
   );
 }

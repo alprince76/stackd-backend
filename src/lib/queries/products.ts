@@ -239,6 +239,51 @@ export async function getUserByUsername(username: string) {
   });
 }
 
+export async function getCreators() {
+  const users = await prisma.user.findMany({
+    where: {
+      username: { not: { startsWith: "voter" } },
+      OR: [
+        { roles: { some: { role: "maker" } } },
+        { products: { some: {} } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      username: true,
+      avatarUrl: true,
+      bio: true,
+      city: true,
+      _count: {
+        select: {
+          followers: true,
+          products: true,
+        },
+      },
+      products: {
+        where: { status: "approved" },
+        take: 1,
+        orderBy: { publishedAt: "desc" },
+        select: { categoryId: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return users.map(u => ({
+    id: u.id,
+    name: u.name,
+    username: u.username,
+    avatarUrl: u.avatarUrl,
+    bio: u.bio,
+    city: u.city,
+    followers: u._count.followers,
+    products: u._count.products,
+    category: u.products[0]?.categoryId ?? "Other",
+  }));
+}
+
 export async function searchProducts(q: string, userId?: string) {
   const products = await prisma.product.findMany({
     where: {
